@@ -6,5 +6,5 @@
 
 目前包含以下框架：
 
-- **[BranchRpc](https://github.com/Masker7/branchframework/branch-rpc)**
+- **[BranchRpc](https://github.com/Masker7/branchframework/tree/master/branch-rpc)**
 
