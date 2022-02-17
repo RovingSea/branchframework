@@ -2,7 +2,8 @@ package org.branchframework.rpc.client.transmission;
 
 import io.netty.channel.Channel;
 import lombok.extern.slf4j.Slf4j;
-import org.branchframework.rpc.client.proxy.NettyFutureAsyncInvocationHandler;
+import org.branchframework.rpc.client.proxy.NettyAsyncInvocationHandler;
+import org.branchframework.rpc.client.proxy.NettySyncInvocationHandler;
 import org.branchframework.rpc.core.discovery.DiscoveryService;
 import org.branchframework.rpc.core.registry.RegistryServiceNode;
 import org.branchframework.rpc.core.registry.util.RegistryServiceUtil;
@@ -28,7 +29,7 @@ public class NettyRpcClientManager implements StartRpcClient {
     private Object target;
 
 
-    public <T> T setTarget(Class<T> target, String version, DiscoveryService discoveryService) throws Exception {
+    public <T> T setTarget(Class<T> target, DiscoveryService discoveryService, String version, boolean sync) throws Exception {
         this.target = target;
         InvocationHandler invocationHandler = null;
         RegistryServiceNode serviceNode = null;
@@ -46,14 +47,18 @@ public class NettyRpcClientManager implements StartRpcClient {
 
         classLoader = target.getClassLoader();
         interfaces = new Class[]{target};
-        invocationHandler = getRpcWay(target.getName(), getChannel(), methodVersion);
+        invocationHandler = getRpcWay(target.getName(), getChannel(), methodVersion, sync);
         Object o = Proxy.newProxyInstance(classLoader, interfaces, invocationHandler);
         return (T) o;
     }
 
-    // TODO 更多的调用方式
-    private InvocationHandler getRpcWay(String targetClassName, Channel channel, String methodVersion) {
-        return new NettyFutureAsyncInvocationHandler(targetClassName, channel, methodVersion);
+    // 同步和异步调用方式
+    private InvocationHandler getRpcWay(String targetClassName, Channel channel, String methodVersion, boolean sync) {
+        if (sync) {
+            return new NettySyncInvocationHandler(targetClassName, channel, methodVersion);
+        } else {
+            return new NettyAsyncInvocationHandler(targetClassName, channel, methodVersion);
+        }
     }
 
     @Override

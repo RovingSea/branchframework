@@ -1,5 +1,7 @@
 package org.branchframework.rpc.client.processor;
 
+import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.branchframework.rpc.client.annotation.BranchRpcReference;
 import org.branchframework.rpc.client.transmission.NettyRpcClientManager;
@@ -46,10 +48,11 @@ public class RpcClientProcessor implements BeanFactoryPostProcessor, Application
                         try {
                             discoveryService = BranchRpcClientContext.getRegistry();
                             String version = branchRpcReference.version();
+                            boolean sync = branchRpcReference.sync();
                             Object bean = applicationContext.getBean(clazz);
                             field.setAccessible(true);
                             // 修改为代理对象
-                            ReflectionUtils.setField(field, bean, nettyRpcClientManager.setTarget(field.getType(), version, discoveryService));
+                            ReflectionUtils.setField(field, bean, nettyRpcClientManager.setTarget(field.getType(), discoveryService, version, sync));
                         } catch (Exception e) {
                             e.printStackTrace();
                         }

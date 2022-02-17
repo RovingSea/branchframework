@@ -6,11 +6,11 @@
 
 目前只支持轮询负载均衡算法
 
-目前只支持异步调用远程服务
+目前支持同步和异步调用远程服务
 
 目前只支持 `Zookeeper` 作为注册和配置中心，定制了 `SPI`，如果需要可以进行扩展
 
-目前只支持 `Google Gson` 和 `JDK` 序列化算法
+目前支持 `Google Gson` 和 `JDK` 序列化算法
 
 通过 `Netty` 代替 `BIO`方式进行网络传输
 
@@ -47,7 +47,9 @@ package org.branchframework.rpc.test.service;
  * @since 1.0
  */
 public interface HelloService {
-    String sayHello(String name);
+    String sayHello(String name) throws InterruptedException;
+	//如果要使用异步方式，返回类型要注明为 Object
+    Object sayHello1(String name) throws InterruptedException;
 }
 ```
 
@@ -63,6 +65,9 @@ package org.branchframework.rpc.test.provider.service.impl;
 import org.branchframework.rpc.server.annotation.BranchRpcService;
 import org.branchframework.rpc.test.service.HelloService;
 
+import java.sql.Time;
+import java.util.concurrent.TimeUnit;
+
 /**
  * @author Haixin Wu
  * @since 1.0
@@ -70,7 +75,14 @@ import org.branchframework.rpc.test.service.HelloService;
 @BranchRpcService(interfaceType = HelloService.class)
 public class HelloServiceImpl implements HelloService {
     @Override
-    public String sayHello(String name) {
+    public String sayHello(String name) throws InterruptedException {
+        TimeUnit.SECONDS.sleep(1);
+        return "您好，" + name;
+    }
+
+    @Override
+    public Object sayHello1(String name) throws InterruptedException {
+        TimeUnit.SECONDS.sleep(1);
         return "您好，" + name;
     }
 }
@@ -139,9 +151,14 @@ branch.rpc.server.registryAddress = 127.0.0.1:2181
 package org.branchframework.rpc.test.consumer.controller;
 
 
+import io.netty.util.concurrent.Future;
 import org.branchframework.rpc.client.annotation.BranchRpcReference;
 import org.branchframework.rpc.test.service.HelloService;
 import org.springframework.web.bind.annotation.*;
+
+import java.lang.reflect.Proxy;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Haixin Wu
@@ -151,12 +168,23 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/test")
 @CrossOrigin
 public class HelloController {
-    @BranchRpcReference(version = "1.0")
+
+    @BranchRpcReference(version = "1.0", sync = true)
     private HelloService helloService;
 
-    @GetMapping("/hello/{name}")
-    public String hello(@PathVariable String name) {
+    @BranchRpcReference(version = "1.0", sync = false)
+    private HelloService helloService1;
+
+    @GetMapping("/sync/hello/{name}")
+    public String hello(@PathVariable String name) throws InterruptedException {
         return helloService.sayHello(name);
+    }
+
+    @GetMapping("/async/hello/{name}/{waitTime}")
+    public String hello1(@PathVariable String name, @PathVariable Integer waitTime) throws InterruptedException {
+        Future<String> future = (Future<String>) helloService1.sayHello1(name);
+        TimeUnit.MILLISECONDS.sleep(waitTime);
+        return future.getNow();
     }
 
 }
@@ -284,11 +312,43 @@ return (T) o;
 
 ### 接口调用
 
+#### 同步
+
 浏览器输入
 
 ```
-localhost:9090/test/hello/world
+localhost:9090/test/synchello/world
 ```
+
+结果
+
+<img src="./docs/image/同步调用结果.png" alt="image-20220217213600930" style="zoom: 80%;" />
+
+#### 异步
+
+**情况一**
+
+浏览器输入
+
+```
+http://localhost:9090/test/async/hello/world/999
+```
+
+<img src="./docs/image/限时等待999ms的异步调用.png" alt="image-20220217213731663" style="zoom:80%;" />
+
+未出现结果的原因是服务端需要等待`1000ms`才能返回结果，而客户端限制了`999ms`，所以主线程提前结束返回空
+
+**情况二**
+
+浏览器输入
+
+```
+http://localhost:9090/test/async/hello/world/1500
+```
+
+<img src="./docs/image/显示等待1500ms的异步调用.png" alt="image-20220217214032840" style="zoom:80%;" />
+
+客户端主线程等待 `1500ms` 足够服务端返回结果和网络传输
 
 ## 开发环境
 

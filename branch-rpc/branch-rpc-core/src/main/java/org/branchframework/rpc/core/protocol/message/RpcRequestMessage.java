@@ -28,7 +28,7 @@ public class RpcRequestMessage extends Message {
     /**
      * 方法参数类型数组
      */
-    private final Class[] parameterTypes;
+    private final Class<?>[] parameterTypes;
     /**
      * 方法参数值数组
      */
