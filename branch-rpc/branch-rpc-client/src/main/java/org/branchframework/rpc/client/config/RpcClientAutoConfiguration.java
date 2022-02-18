@@ -9,8 +9,6 @@ import org.branchframework.rpc.core.discovery.ZkDiscoveryServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.context.properties.bind.BindResult;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
@@ -23,15 +21,8 @@ import org.springframework.core.env.Environment;
  * @since 1.0
  */
 @Configuration
-//@EnableConfigurationProperties(RpcClientProperties.class)
 public class RpcClientAutoConfiguration {
 
-//    private final RpcClientProperties properties;
-//
-//    @Autowired
-//    public RpcClientAutoConfiguration(RpcClientProperties properties) {
-//        this.properties = properties;
-//    }
     @Bean
     public RpcClientProperties rpcClientProperties(Environment environment) {
         BindResult<RpcClientProperties> result = Binder.get(environment).bind("branch.rpc.client", RpcClientProperties.class);
@@ -45,19 +36,32 @@ public class RpcClientAutoConfiguration {
     }
 
     @Primary
-    @Bean(name = "roundRobin")
+    @Bean(name = "roundRobinLoadBalance")
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "branch.rpc", name = "loadBalance", havingValue = "roundRobin")
-    public LoadBalance loadBalance() {
+    public LoadBalance roundRobinLoadBalance() {
         return new RoundRobinLoadBalance();
     }
+
+    @Primary
+    @Bean(name = "randomLoadBalance")
+    @ConditionalOnMissingBean
+    public LoadBalance randomLoadBalance() {
+        return new RoundRobinLoadBalance();
+    }
+
+//    TODO 更多负载均衡算法
+//    @Primary
+//    @Bean(name = "xxxLoadBalance")
+//    @ConditionalOnMissingBean
+//    public LoadBalance xxxLoadBalance() {
+//        return new xxxLoadBalance();
+//    }
 
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnBean({RpcClientProperties.class, LoadBalance.class})
-    public DiscoveryService discoveryService(@Autowired RpcClientProperties properties,
-                                             @Autowired LoadBalance loadBalance) {
-        return new ZkDiscoveryServiceImpl(properties.getDiscoveryAddress(), loadBalance);
+    public DiscoveryService discoveryService(@Autowired RpcClientProperties properties) {
+        return new ZkDiscoveryServiceImpl(properties.getRegistryAddress());
     }
 
 //    TODO 更多的发现注册中心服务实现类

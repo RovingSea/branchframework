@@ -3,11 +3,18 @@ package org.branchframework.rpc.client.proxy;
 
 import io.netty.channel.Channel;
 import lombok.Data;
+import org.branchframework.rpc.client.transmission.RpcChannel;
+import org.branchframework.rpc.core.balancer.LoadBalance;
+import org.branchframework.rpc.core.cache.LocalClientCache;
+import org.branchframework.rpc.core.context.BranchRpcClientContext;
 import org.branchframework.rpc.core.protocol.message.RpcRequestMessage;
 import org.branchframework.rpc.core.protocol.message.SequenceIdGenerator;
+import org.branchframework.rpc.core.registry.RegistryServiceNode;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.util.List;
 
 /**
  * @author Haixin Wu
@@ -18,18 +25,23 @@ public abstract class NettyInvocationHandler implements InvocationHandler {
 
     private final String targetClassName;
 
-    private final Channel channel;
+    private final RpcChannel rpcChannel;
 
-    private final String methodVersion;
+    private final RegistryServiceNode registryServiceNode;
 
-    public NettyInvocationHandler(String targetClassName, Channel channel, String methodVersion) {
+    private final String loadBalance;
+
+    private Channel channel;
+
+    public NettyInvocationHandler(String targetClassName, RpcChannel rpcChannel, RegistryServiceNode registryServiceNode, String loadBalance) {
         this.targetClassName = targetClassName;
-        this.channel = channel;
-        this.methodVersion = methodVersion;
+        this.rpcChannel = rpcChannel;
+        this.registryServiceNode = registryServiceNode;
+        this.loadBalance = loadBalance;
     }
 
     @Override
-    public Object invoke(Object proxy, Method method, Object[] args) {
+    public Object invoke(Object proxy, Method method, Object[] args) throws IOException {
         RpcRequestMessage message = new RpcRequestMessage(
                 SequenceIdGenerator.nextId(),
                 targetClassName,
@@ -37,7 +49,12 @@ public abstract class NettyInvocationHandler implements InvocationHandler {
                 method.getReturnType(),
                 method.getParameterTypes(),
                 args,
-                methodVersion);
+                registryServiceNode.getVersion());
+        // 选择负载均衡算法
+        List<RegistryServiceNode> nodes = LocalClientCache.serviceNodeMap.get(registryServiceNode.getServiceName());
+        LoadBalance loadBalance = BranchRpcClientContext.getLoadBalance(this.loadBalance);
+        RegistryServiceNode serviceNode = loadBalance.chooseOne(nodes);
+        channel = rpcChannel.getChannel(serviceNode.getAddress() + ":" +serviceNode.getPort());
         return sendMessage(message);
     }
 

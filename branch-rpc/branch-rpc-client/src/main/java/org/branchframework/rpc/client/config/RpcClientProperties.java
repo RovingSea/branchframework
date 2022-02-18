@@ -15,20 +15,12 @@ public class RpcClientProperties {
      */
     private String registry;
     /**
-     * 负载均衡
-     */
-    private String balance;
-    /**
      * 序列化
      */
     private String serialization;
     /**
-     * 服务发现的地址
+     * 注册中心的地址
      */
-    private String discoveryAddress;
-    /**
-     * 服务调用最大等待时间
-     */
-    private Integer timeout;
+    private String registryAddress;
 }
 

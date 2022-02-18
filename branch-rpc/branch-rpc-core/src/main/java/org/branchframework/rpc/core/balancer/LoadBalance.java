@@ -10,6 +10,12 @@ import java.util.List;
  * @since 1.0
  */
 public interface LoadBalance {
+
+    // TODO 更多的负载均衡算法
+    public static final String Random = "random";
+    public static final String RoundRobin = "roundRobin";
+
+
     /**
      * 从多个节点中获取一个节点
      * @param nodes 服务节点

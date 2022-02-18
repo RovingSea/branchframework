@@ -10,9 +10,12 @@ import org.apache.curator.x.discovery.ServiceInstance;
 import org.apache.curator.x.discovery.details.JsonInstanceSerializer;
 import org.branchframework.rpc.core.balancer.LoadBalance;
 import org.branchframework.rpc.core.balancer.RoundRobinLoadBalance;
+import org.branchframework.rpc.core.cache.LocalClientCache;
 import org.branchframework.rpc.core.registry.RegistryServiceNode;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 /**
@@ -30,6 +33,10 @@ public class ZkDiscoveryServiceImpl implements DiscoveryService {
     private ServiceDiscovery<RegistryServiceNode> serviceDiscovery;
 
     private LoadBalance loadBalance;
+
+    public ZkDiscoveryServiceImpl(String registryAddress) {
+        this(registryAddress, new RoundRobinLoadBalance());
+    }
 
     public ZkDiscoveryServiceImpl(String registryAddress, LoadBalance loadBalance) {
         this.loadBalance = loadBalance;
@@ -51,10 +58,9 @@ public class ZkDiscoveryServiceImpl implements DiscoveryService {
     @Override
     public RegistryServiceNode discovery(String serviceName) throws Exception {
         Collection<ServiceInstance<RegistryServiceNode>> serviceInstances = serviceDiscovery.queryForInstances(serviceName);
-        return serviceInstances.isEmpty() ? null :
-                loadBalance.chooseOne(
-                        serviceInstances.stream().map(ServiceInstance::getPayload).collect(Collectors.toList())
-                );
+        List<RegistryServiceNode> nodeList = serviceInstances.stream().map(ServiceInstance::getPayload).collect(Collectors.toList());
+        LocalClientCache.add(serviceName, nodeList);
+        return serviceInstances.isEmpty() ? null : loadBalance.chooseOne(nodeList);
     }
 }
 

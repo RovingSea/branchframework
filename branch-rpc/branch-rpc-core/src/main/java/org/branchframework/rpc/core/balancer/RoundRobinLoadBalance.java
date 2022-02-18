@@ -18,7 +18,7 @@ public class RoundRobinLoadBalance implements LoadBalance {
         if (index >= nodes.size()) {
             index = 0;
         }
-        return nodes.get(index);
+        return nodes.get(index++);
     }
 }
 

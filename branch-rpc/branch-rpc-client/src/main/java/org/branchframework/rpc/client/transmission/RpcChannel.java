@@ -12,6 +12,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.branchframework.rpc.client.handler.RpcResponseMessageHandler;
 import org.branchframework.rpc.core.codec.ProtocolFrameDecoder;
 import org.branchframework.rpc.core.codec.SharableMessageCodec;
+import org.branchframework.rpc.core.registry.RegistryServiceNode;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Haixin Wu
@@ -20,15 +25,34 @@ import org.branchframework.rpc.core.codec.SharableMessageCodec;
 @Slf4j
 public class RpcChannel {
 
-    private Channel channel = null;
+    private final Map<String, Channel> channelMap = new ConcurrentHashMap<>();
 
-    public RpcChannel(String serverAddress, int port){
-        NioEventLoopGroup group = new NioEventLoopGroup();
+    private final NioEventLoopGroup group;
+
+    public RpcChannel(List<RegistryServiceNode> serviceNodes){
+        group = new NioEventLoopGroup();
+        try {
+            for (RegistryServiceNode serviceNode : serviceNodes) {
+                Bootstrap bootstrap = initBootstrap();
+                String address = serviceNode.getAddress();
+                Integer port = serviceNode.getPort();
+                Channel channel = bootstrap.connect(address, port).sync().channel();
+                channel.closeFuture().addListener(future -> {
+                    group.shutdownGracefully();
+                });
+                channelMap.put(address + ":" + port, channel);
+            }
+        } catch (Exception e) {
+            log.error("客户端建立连接失败", e);
+        }
+    }
+
+    private Bootstrap initBootstrap() {
+        Bootstrap bootstrap = new Bootstrap();
         ProtocolFrameDecoder protocolFrameDecoder = new ProtocolFrameDecoder();
         LoggingHandler loggingHandler = new LoggingHandler(LogLevel.DEBUG);
         SharableMessageCodec messageCodec = new SharableMessageCodec();
         RpcResponseMessageHandler rpcResponseMessageHandler = new RpcResponseMessageHandler();
-        Bootstrap bootstrap = new Bootstrap();
         bootstrap.channel(NioSocketChannel.class);
         bootstrap.group(group);
         bootstrap.handler(new ChannelInitializer<SocketChannel>() {
@@ -40,18 +64,15 @@ public class RpcChannel {
                 socketChannel.pipeline().addLast(rpcResponseMessageHandler);
             }
         });
-        try {
-            channel = bootstrap.connect(serverAddress, port).sync().channel();
-            channel.closeFuture().addListener(future -> {
-                group.shutdownGracefully();
-            });
-        } catch (Exception e) {
-            log.error("客户端建立连接失败", e);
-        }
+        return bootstrap;
     }
 
-    public Channel getChannel() {
-        return channel;
+    public Map<String, Channel> getChannels() {
+        return channelMap;
+    }
+
+    public Channel getChannel(String ipAndPort) {
+        return channelMap.get(ipAndPort);
     }
 }
 

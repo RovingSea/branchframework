@@ -16,4 +16,7 @@ public @interface BranchRpcReference {
 
     String version() default "1.0";
 
+    boolean sync() default true;
+
+    String loadBalance() default "roundrobin";
 }

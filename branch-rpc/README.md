@@ -4,7 +4,7 @@
 
 是一框基于 `Spring`和 `Netty`的`RPC`框架
 
-目前只支持轮询负载均衡算法
+目前支持轮询、随机负载均衡算法
 
 目前支持同步和异步调用远程服务
 
@@ -65,7 +65,7 @@ package org.branchframework.rpc.test.provider.service.impl;
 import org.branchframework.rpc.server.annotation.BranchRpcService;
 import org.branchframework.rpc.test.service.HelloService;
 
-import java.sql.Time;
+
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -77,13 +77,13 @@ public class HelloServiceImpl implements HelloService {
     @Override
     public String sayHello(String name) throws InterruptedException {
         TimeUnit.SECONDS.sleep(1);
-        return "您好，" + name;
+        return "9092，您好，" + name;
     }
 
     @Override
     public Object sayHello1(String name) throws InterruptedException {
         TimeUnit.SECONDS.sleep(1);
-        return "您好，" + name;
+        return "9092，您好，" + name;
     }
 }
 ```
@@ -150,14 +150,12 @@ branch.rpc.server.registryAddress = 127.0.0.1:2181
 ```java
 package org.branchframework.rpc.test.consumer.controller;
 
-
 import io.netty.util.concurrent.Future;
 import org.branchframework.rpc.client.annotation.BranchRpcReference;
+import org.branchframework.rpc.core.balancer.LoadBalance;
 import org.branchframework.rpc.test.service.HelloService;
 import org.springframework.web.bind.annotation.*;
 
-import java.lang.reflect.Proxy;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -169,19 +167,27 @@ import java.util.concurrent.TimeUnit;
 @CrossOrigin
 public class HelloController {
 
-    @BranchRpcReference(version = "1.0", sync = true)
+    @BranchRpcReference(version = "1.0", sync = true, loadBalance = LoadBalance.RoundRobin)
     private HelloService helloService;
 
-    @BranchRpcReference(version = "1.0", sync = false)
+    @BranchRpcReference(version = "1.0", sync = false, loadBalance = LoadBalance.RoundRobin)
     private HelloService helloService1;
 
+    @BranchRpcReference(version = "1.0", sync = true, loadBalance = LoadBalance.Random)
+    private HelloService helloService2;
+
     @GetMapping("/sync/hello/{name}")
-    public String hello(@PathVariable String name) throws InterruptedException {
+    public String syncHello(@PathVariable String name) throws InterruptedException {
         return helloService.sayHello(name);
     }
 
+    @GetMapping("/sync/hello1/{name}")
+    public String syncHello1(@PathVariable String name) throws InterruptedException {
+        return helloService2.sayHello(name);
+    }
+
     @GetMapping("/async/hello/{name}/{waitTime}")
-    public String hello1(@PathVariable String name, @PathVariable Integer waitTime) throws InterruptedException {
+    public String asyncHello(@PathVariable String name, @PathVariable Integer waitTime) throws InterruptedException {
         Future<String> future = (Future<String>) helloService1.sayHello1(name);
         TimeUnit.MILLISECONDS.sleep(waitTime);
         return future.getNow();
@@ -312,7 +318,9 @@ return (T) o;
 
 ### 接口调用
 
-#### 同步
+#### 调用方式
+
+##### 同步
 
 浏览器输入
 
@@ -324,7 +332,7 @@ localhost:9090/test/synchello/world
 
 <img src="./docs/image/同步调用结果.png" alt="image-20220217213600930" style="zoom: 80%;" />
 
-#### 异步
+##### 异步
 
 **情况一**
 
@@ -349,6 +357,12 @@ http://localhost:9090/test/async/hello/world/1500
 <img src="./docs/image/显示等待1500ms的异步调用.png" alt="image-20220217214032840" style="zoom:80%;" />
 
 客户端主线程等待 `1500ms` 足够服务端返回结果和网络传输
+
+#### 负载均衡
+
+在 `@BranchRpcReference` 注解中添加属性 `loadBalnce = 具体的负载均衡算法` 默认情况是是轮询算法
+
+**具体案例读者可以通过上述服务端和客户端的代码展示**
 
 ## 开发环境
 

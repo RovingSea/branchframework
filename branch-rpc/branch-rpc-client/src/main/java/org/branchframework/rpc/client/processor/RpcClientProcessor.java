@@ -1,13 +1,12 @@
 package org.branchframework.rpc.client.processor;
 
-import io.netty.util.concurrent.DefaultPromise;
-import io.netty.util.concurrent.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.branchframework.rpc.client.annotation.BranchRpcReference;
 import org.branchframework.rpc.client.transmission.NettyRpcClientManager;
 import org.branchframework.rpc.core.context.BranchRpcClientContext;
 import org.branchframework.rpc.core.discovery.DiscoveryService;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -30,6 +29,7 @@ public class RpcClientProcessor implements BeanFactoryPostProcessor, Application
 
     private ApplicationContext applicationContext;
 
+    @Autowired
     public RpcClientProcessor(NettyRpcClientManager nettyRpcClientManager) {
         this.nettyRpcClientManager = nettyRpcClientManager;
     }
@@ -46,13 +46,14 @@ public class RpcClientProcessor implements BeanFactoryPostProcessor, Application
                     BranchRpcReference branchRpcReference = AnnotationUtils.getAnnotation(field, BranchRpcReference.class);
                     if (branchRpcReference != null) {
                         try {
+                            String loadBalance = branchRpcReference.loadBalance();
                             discoveryService = BranchRpcClientContext.getRegistry();
                             String version = branchRpcReference.version();
                             boolean sync = branchRpcReference.sync();
                             Object bean = applicationContext.getBean(clazz);
                             field.setAccessible(true);
                             // 修改为代理对象
-                            ReflectionUtils.setField(field, bean, nettyRpcClientManager.setTarget(field.getType(), discoveryService, version, sync));
+                            ReflectionUtils.setField(field, bean, nettyRpcClientManager.setTarget(field.getType(), discoveryService, version, sync, loadBalance));
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
