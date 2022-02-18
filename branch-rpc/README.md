@@ -135,8 +135,8 @@ public class ProviderApplication {
 #### 相关配置
 
 ```properties
-server.port=9091
-branch.rpc.server.port = 9092
+server.port=9092
+branch.rpc.server.port = 9992
 branch.rpc.server.appName = test
 branch.rpc.server.registryAddress = 127.0.0.1:2181
 ```
@@ -243,8 +243,7 @@ public class ConsumerApplication {
 ```properties
 server.port=9090
 branch.rpc.client.registry = zookeeper
-branch.rpc.client.registry.address = 127.0.0.1:2181
-branch.rpc.client.balance = roundRobin
+branch.rpc.client.registryAddress = 127.0.0.1:2181
 branch.rpc.client.serialization = Gson
 branch.rpc.client.timeout = 10
 ```
